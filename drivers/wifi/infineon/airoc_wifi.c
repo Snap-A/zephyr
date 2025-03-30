@@ -530,6 +530,20 @@ static int airoc_mgmt_connect(const struct device *dev, struct wifi_connect_req_
 	usr_result.SSID.length = ssid.length;
 	memcpy(usr_result.SSID.value, ssid.value, ssid.length);
 
+	switch (params->security) {
+	case WIFI_SECURITY_TYPE_NONE:
+		usr_result.security = WHD_SECURITY_OPEN;
+		break;
+	case WIFI_SECURITY_TYPE_PSK:
+		usr_result.security = WHD_SECURITY_WPA2_AES_PSK;
+		break;
+	case WIFI_SECURITY_TYPE_SAE:
+		usr_result.security = WHD_SECURITY_WPA3_SAE;
+		break;
+        default:
+                /* Leave unchanged */
+	}
+
 	if (whd_wifi_scan(airoc_sta_if, WHD_SCAN_TYPE_ACTIVE, WHD_BSS_TYPE_ANY, NULL, NULL, NULL,
 			  NULL, airoc_wifi_scan_cb_search, &scan_result,
 			  &(usr_result)) != WHD_SUCCESS) {
