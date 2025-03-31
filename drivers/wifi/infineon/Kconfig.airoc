@@ -16,6 +16,13 @@ menuconfig WIFI_AIROC
 	help
 	  Enable Infineon AIROC SoC Wi-Fi support.
 
+menuconfig GPIO_AIROC
+	bool "Infineon AIROC SoC GPIO support"
+	depends on WIFI_AIROC
+	default y
+	help
+	  Enable Infineon AIROC SoC GPIO support.
+
 if WIFI_AIROC
 
 config AIROC_WIFI_BUS_SDIO

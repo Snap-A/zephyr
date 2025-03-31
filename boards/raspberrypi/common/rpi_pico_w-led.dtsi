@@ -1,0 +1,35 @@
+/*
+ * Copyright (c) 2025 Andreas Wolf
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Pico W and Pico 2 W boards have a user LED connected to the WiFi chip. */
+/* The LED is controlled via the chip, which is accessed as gpio1.        */
+/* No PWM control of this LED is possible!                                */
+/ {
+	leds {
+		compatible = "gpio-leds";
+		led0: led_0 {
+			gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>;
+			label = "LED";
+		};
+	};
+
+	aliases {
+		led0 = &led0;
+	};
+};
+
+&pio0 {
+	pio0_spi0: pio0_spi0 {
+		airoc-wifi@0 {
+                        gpio1: airoc_gpio0 {
+                	       compatible = "infineon,airoc-gpio";
+		               gpio-controller;
+               		       status = "okay";
+               		       #gpio-cells = <2>;
+                        };
+                };
+	};
+};
