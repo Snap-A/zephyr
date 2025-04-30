@@ -1,0 +1,15 @@
+# TI ADCxxxNSxx1 ADC configuration options
+
+# Copyright (c) 2025 Andreas Wolf
+# SPDX-License-Identifier: Apache-2.0
+
+config ADC_TXXNSXX1
+	bool "TI ADCxxNSxx1 driver"
+	default y
+	select SPI
+	help
+	  Enable TI ADCxxNSxx1 ADC driver.
+
+	  The TI ADCxx/1/2/4/Sxx1 are 1/2/4 channel 8- to 12-bit A/D converters
+	  with SPI interface.
+
