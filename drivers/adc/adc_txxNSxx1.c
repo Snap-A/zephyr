@@ -140,7 +140,6 @@ static int txxNSxx1_read_channel(const struct device *dev, uint8_t channel,
 	}
 
 	*result = sys_get_be16(rx_bytes);
-	*result &= (BIT_MASK(config->resolution) << 2);
 
 	return 0;
 }
@@ -182,6 +181,10 @@ static int txxNSxx1_read(const struct device *dev,
 			break;
 		}
 
+		result &= (BIT_MASK(sequence->resolution) << 2);
+		int shift = MAX_RESOLUTION - sequence->resolution;
+		result >>= shift;
+
 		LOG_DBG("read channel %d, result = %d", channel,
 			result);
 
@@ -189,7 +192,7 @@ static int txxNSxx1_read(const struct device *dev,
 		WRITE_BIT(data->channels, channel, 0);
 	}
 
-	return result;
+	return err;
 }
 
 static DEVICE_API(adc, txxNSxx1_adc_api) = {
