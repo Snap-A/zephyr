@@ -56,6 +56,7 @@ static int txxNSxx1_channel_setup(const struct device *dev,
 				  const struct adc_channel_cfg *channel_cfg)
 {
 	const struct txxNSxx1_config *config = dev->config;
+	struct txxNSxx1_data *data = dev->data;
 
 	if (channel_cfg->gain != ADC_GAIN_1) {
 		LOG_ERR("unsupported channel gain '%d'", channel_cfg->gain);
@@ -78,6 +79,8 @@ static int txxNSxx1_channel_setup(const struct device *dev,
 		LOG_ERR("unsupported channel id '%d'", channel_cfg->channel_id);
 		return -ENOTSUP;
 	}
+
+	data->resolution = config->resolution;
 
 	return 0;
 }
@@ -165,6 +168,8 @@ static int txxNSxx1_read(const struct device *dev,
 	uint8_t channel;
 	int err;
 
+	data->buffer = sequence->buffer;
+
 	while (data->channels) {
 		channel = find_lsb_set(data->channels) - 1;
 
@@ -195,7 +200,10 @@ static DEVICE_API(adc, txxNSxx1_adc_api) = {
 #define INST_DT_ADCXXNSXX1(inst, t) DT_INST(inst, ti_##t)
 
 #define ADCXXNSXX1_DEVICE(t, n, ch) \
-	static const struct txxNSxx1_config ti_adc##t##_config_##n = { \
+	static struct txxNSxx1_data ti_##t##_data_##n = { \
+		.channels = ch, \
+	}; \
+	static const struct txxNSxx1_config ti_##t##_config_##n = { \
 		.bus = SPI_DT_SPEC_GET(INST_DT_ADCXXNSXX1(n, t), \
 					 SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | \
 					 SPI_WORD_SET(16), 0), \
@@ -203,32 +211,32 @@ static DEVICE_API(adc, txxNSxx1_adc_api) = {
 	}; \
 	DEVICE_DT_DEFINE(INST_DT_ADCXXNSXX1(n, t), \
 			 &txxNSxx1_init, NULL, \
-			 NULL, \
-			 &ti_adc##t##_config_##n, POST_KERNEL, \
+			 &ti_##t##_data_##n, \
+			 &ti_##t##_config_##n, POST_KERNEL, \
 			 CONFIG_ADC_INIT_PRIORITY, \
 			 &txxNSxx1_adc_api)
 
 /*
  * ADCxx1Sxx1: 1 channels
  */
-#define ADCXX1SXX1_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx1Sxx1, n, 1)
+#define ADCXX1SXX1_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx1sxx1, n, 1)
 
 /*
  * ADCxx2Sxx1: 2 channels
  */
-#define ADCXX2SXX1_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx2Sxx1, n, 2)
+#define ADCXX2SXX1_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx2sxx1, n, 2)
 
 /*
  * ADCxx4Sxx1: 4 channels
  */
-#define ADCXX4SXX1_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx4Sxx1, n, 4)
+#define ADCXX4SXX1_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx4sxx1, n, 4)
 
 #define CALL_WITH_ARG(arg, expr) expr(arg)
 
 #define INST_DT_ADCXXNSXX1_FOREACH(t, inst_expr)	\
-	LISTIFY(DT_NUM_INST_STATUS_OKAY(ti_adcxx##t),	\
+	LISTIFY(DT_NUM_INST_STATUS_OKAY(ti_adcxx##t##sxx1),	\
 		CALL_WITH_ARG, (;), inst_expr)
 
-INST_DT_ADCXXNSXX1_FOREACH(4Sxx1, ADCXX4SXX1_DEVICE);
-INST_DT_ADCXXNSXX1_FOREACH(2Sxx1, ADCXX2SXX1_DEVICE);
-INST_DT_ADCXXNSXX1_FOREACH(1Sxx1, ADCXX1SXX1_DEVICE);
+INST_DT_ADCXXNSXX1_FOREACH(4, ADCXX4SXX1_DEVICE);
+INST_DT_ADCXXNSXX1_FOREACH(2, ADCXX2SXX1_DEVICE);
+INST_DT_ADCXXNSXX1_FOREACH(1, ADCXX1SXX1_DEVICE);
