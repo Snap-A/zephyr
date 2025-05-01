@@ -96,27 +96,29 @@ static int txxNSxx1_read_channel(const struct device *dev, uint8_t channel,
         /* second frame is no useful (selecting channel 0), and the data read in the  */
         /* first frame might originate from an unknown channel and is ignored.        */
 
-	uint8_t tx_bytes[2];
-	uint8_t rx_bytes[2];
+	uint8_t tx1_bytes[2];
+	uint8_t rx1_bytes[2];
+	uint8_t tx2_bytes[2];
+	uint8_t rx2_bytes[2];
 	int err;
 	const struct spi_buf tx_buf[2] = {
 		{
-			.buf = tx_bytes,
-			.len = sizeof(tx_bytes)
+			.buf = tx1_bytes,
+			.len = sizeof(tx1_bytes)
 		},
 		{
-			.buf = NULL,
-			.len = 1
+			.buf = tx2_bytes,
+			.len = sizeof(tx2_bytes)
 		}
 	};
 	const struct spi_buf rx_buf[2] = {
 		{
-			.buf = NULL,
-			.len = 1
+			.buf = rx1_bytes,
+			.len = sizeof(rx1_bytes)
 		},
 		{
-			.buf = rx_bytes,
-			.len = sizeof(rx_bytes)
+			.buf = rx2_bytes,
+			.len = sizeof(rx2_bytes)
 		}
 	};
 	const struct spi_buf_set tx = {
@@ -131,15 +133,23 @@ static int txxNSxx1_read_channel(const struct device *dev, uint8_t channel,
 	/*
 	 * Configuration byte consists of: 2 dummy bits + D2 + D1 + D0 + 3 dummy bits
 	 */
-	tx_bytes[0] = channel << 3;
-	tx_bytes[1] = 0;
+	tx1_bytes[0] = channel << 3;
+	tx1_bytes[1] = 0;
+	/*
+	 * Just sent zeroes
+	 */
+	tx2_bytes[0] = 0;
+	tx2_bytes[1] = 0;
 
 	err = spi_transceive_dt(&config->bus, &tx, &rx);
 	if (err) {
 		return err;
 	}
 
-	*result = sys_get_be16(rx_bytes);
+	/*
+	 * Read data from second frame
+	 */
+	*result = sys_get_be16(rx2_bytes);
 
 	return 0;
 }
@@ -168,6 +178,7 @@ static int txxNSxx1_read(const struct device *dev,
 	int err;
 
 	data->buffer = sequence->buffer;
+	data->channels = sequence->channels;
 
 	while (data->channels) {
 		channel = find_lsb_set(data->channels) - 1;
@@ -204,11 +215,12 @@ static DEVICE_API(adc, txxNSxx1_adc_api) = {
 
 #define ADCXXNSXX1_DEVICE(t, n, ch) \
 	static struct txxNSxx1_data ti_##t##_data_##n = { \
-		.channels = ch, \
+		.channels = ch,                       \
 	}; \
 	static const struct txxNSxx1_config ti_##t##_config_##n = { \
 		.bus = SPI_DT_SPEC_GET(INST_DT_ADCXXNSXX1(n, t), \
 					 SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | \
+					 SPI_MODE_CPOL | SPI_MODE_CPHA | \
 					 SPI_WORD_SET(16), 0), \
 		.channels = ch, \
 	}; \
