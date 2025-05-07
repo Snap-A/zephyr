@@ -119,7 +119,7 @@ static int txxNSxx1_read_channel(const struct device *dev, uint8_t channel,
 	uint8_t tx2_bytes[2];
 	uint8_t rx2_bytes[2];
 	int err;
-	const struct spi_buf tx_buf[2] = {
+	const struct spi_buf tx_buf[3] = {
 		{
 			.buf = tx1_bytes,
 			.len = sizeof(tx1_bytes)
@@ -127,9 +127,13 @@ static int txxNSxx1_read_channel(const struct device *dev, uint8_t channel,
 		{
 			.buf = tx2_bytes,
 			.len = sizeof(tx2_bytes)
+		},
+		{
+			.buf = NULL,
+			.len = 1
 		}
 	};
-	const struct spi_buf rx_buf[2] = {
+	const struct spi_buf rx_buf[3] = {
 		{
 			.buf = rx1_bytes,
 			.len = sizeof(rx1_bytes)
@@ -137,15 +141,19 @@ static int txxNSxx1_read_channel(const struct device *dev, uint8_t channel,
 		{
 			.buf = rx2_bytes,
 			.len = sizeof(rx2_bytes)
+		},
+		{
+			.buf = NULL,
+			.len = 1
 		}
 	};
 	const struct spi_buf_set tx = {
 		.buffers = tx_buf,
-		.count = ARRAY_SIZE(tx_buf)
+		.count = ARRAY_SIZE(tx_buf)-1
 	};
 	const struct spi_buf_set rx = {
 		.buffers = rx_buf,
-		.count = ARRAY_SIZE(rx_buf)
+		.count = ARRAY_SIZE(rx_buf)-1
 	};
 
 	/*
