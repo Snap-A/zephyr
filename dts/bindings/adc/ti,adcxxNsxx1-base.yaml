@@ -1,0 +1,10 @@
+# Common fields for Texas Instrument ADCxx1Sxx1/ADCxx2Sxx1/ADCxx4Sxx1
+
+include: [adc-controller.yaml, spi-device.yaml]
+
+properties:
+  "#io-channel-cells":
+    const: 1
+
+io-channel-cells:
+  - input
