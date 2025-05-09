@@ -13,3 +13,24 @@ config ADC_TXXNSXX1
 	  The TI ADCxx/1/2/4/Sxx1 are 1/2/4 channel 8- to 12-bit A/D converters
 	  with SPI interface.
 
+if ADC_TXXNSXX1
+
+config ADC_TXXNSXX1_SUPPORT_200_KSPS
+	bool "TI ADCxxNS021 devices"
+	default n
+	help
+	  Select support of the 200 ksps chip variant
+
+config ADC_TXXNSXX1_SUPPORT_500_KSPS
+	bool "TI ADCxxNS051 devices"
+	default n
+	help
+	  Select support of the 500 ksps chip variant
+
+config ADC_TXXNSXX1_SUPPORT_1000_KSPS
+	bool "TI ADCxxNS101 devices"
+	default n
+	help
+	  Select support of the 1000 ksps chip variant
+
+endif # ADC_TXXNSXX1

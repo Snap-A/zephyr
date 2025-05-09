@@ -1,5 +1,0 @@
-description: Texas Instrument ADCxx2Sxx1
-
-compatible: "ti,adcxx2sxx1"
-
-include: ti,adcxxNsxx1-base.yaml
