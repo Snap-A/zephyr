@@ -50,6 +50,9 @@ struct txxNSxx1_data {
 	uint16_t *buffer;
 	uint8_t channels;
 	uint8_t resolution;
+	uint32_t max_ksps;
+	uint32_t min_freq_khz;
+	uint32_t max_freq_khz;
 };
 
 static int txxNSxx1_channel_setup(const struct device *dev,
@@ -80,6 +83,21 @@ static int txxNSxx1_channel_setup(const struct device *dev,
 		return -ENOTSUP;
 	}
 
+	if (1000 * data->min_freq_khz > config->bus.config.frequency) {
+		LOG_ERR("too low SCLK frequency: '%d' Hz", config->bus.config.frequency);
+		return -ENOTSUP;
+	}
+
+	if (1000 * data->max_freq_khz < config->bus.config.frequency) {
+		LOG_ERR("too high SCLK frequency: '%d' Hz", config->bus.config.frequency);
+		return -ENOTSUP;
+	}
+
+	if (16000 * data->max_ksps < config->bus.config.frequency) {
+		LOG_WRN("SCLK frequency larger than max sample rate: '%d' Hz", config->bus.config.frequency);
+	}
+
+	/* set bit resultion for this chip variant */
 	data->resolution = config->resolution;
 
 	return 0;
@@ -213,9 +231,12 @@ static DEVICE_API(adc, txxNSxx1_adc_api) = {
 
 #define INST_DT_ADCXXNSXX1(inst, t) DT_INST(inst, ti_##t)
 
-#define ADCXXNSXX1_DEVICE(t, n, ch) \
+#define ADCXXNSXX1_DEVICE(t, n, ch, ksps)                      \
 	static struct txxNSxx1_data ti_##t##_data_##n = { \
-		.channels = ch,                       \
+		.channels = ch,                           \
+		.max_ksps = ksps,                         \
+		.min_freq_khz = 50,                       \
+		.max_freq_khz = 16000,                    \
 	}; \
 	static const struct txxNSxx1_config ti_##t##_config_##n = { \
 		.bus = SPI_DT_SPEC_GET(INST_DT_ADCXXNSXX1(n, t), \
@@ -232,26 +253,71 @@ static DEVICE_API(adc, txxNSxx1_adc_api) = {
 			 &txxNSxx1_adc_api)
 
 /*
- * ADCxx1Sxx1: 1 channels
+ * ADCxx1S021: 1 channel, max 200 ksps
  */
-#define ADCXX1SXX1_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx1sxx1, n, 1)
+#define ADCXX1S021_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx1s021, n, 1, 200)
 
 /*
- * ADCxx2Sxx1: 2 channels
+ * ADCxx1S051: 1 channel, max 500 ksps
  */
-#define ADCXX2SXX1_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx2sxx1, n, 2)
+#define ADCXX1S051_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx1s051, n, 1, 500)
 
 /*
- * ADCxx4Sxx1: 4 channels
+ * ADCxx1S101: 1 channel, max 1000 ksps
  */
-#define ADCXX4SXX1_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx4sxx1, n, 4)
+#define ADCXX1S101_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx1s101, n, 1, 1000)
+
+/*
+ * ADCxx2S021: 2 channels, max 200 ksps
+ */
+#define ADCXX2S021_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx2s021, n, 2, 200)
+
+/*
+ * ADCxx2S051: 2 channels, max 500 ksps
+ */
+#define ADCXX2S051_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx2s051, n, 2, 500)
+
+/*
+ * ADCxx2S101: 2 channels, max 1000 ksps
+ */
+#define ADCXX2S101_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx2s101, n, 2, 1000)
+
+/*
+ * ADCxx4Sxx1: 4 channels, max 200 ksps
+ */
+#define ADCXX4S021_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx4s021, n, 4, 200)
+
+/*
+ * ADCxx4Sxx1: 4 channels, max 500 ksps
+ */
+#define ADCXX4S051_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx4s051, n, 4, 500)
+
+/*
+ * ADCxx4Sxx1: 4 channels, max 1000 ksps
+ */
+#define ADCXX4S101_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx4s101, n, 4, 1000)
 
 #define CALL_WITH_ARG(arg, expr) expr(arg)
 
-#define INST_DT_ADCXXNSXX1_FOREACH(t, inst_expr)	\
-	LISTIFY(DT_NUM_INST_STATUS_OKAY(ti_adcxx##t##sxx1),	\
+#define INST_DT_ADCXXNSXX1_FOREACH(t, p, inst_expr)              \
+	LISTIFY(DT_NUM_INST_STATUS_OKAY(ti_adcxx##t##s##p##1),	\
 		CALL_WITH_ARG, (;), inst_expr)
 
-INST_DT_ADCXXNSXX1_FOREACH(4, ADCXX4SXX1_DEVICE);
-INST_DT_ADCXXNSXX1_FOREACH(2, ADCXX2SXX1_DEVICE);
-INST_DT_ADCXXNSXX1_FOREACH(1, ADCXX1SXX1_DEVICE);
+/* Create instances for each resolution and speed */
+#if CONFIG_ADC_TXXNSXX1_SUPPORT_200_KSPS
+INST_DT_ADCXXNSXX1_FOREACH(4, 02, ADCXX4S021_DEVICE);
+INST_DT_ADCXXNSXX1_FOREACH(2, 02, ADCXX2S021_DEVICE);
+INST_DT_ADCXXNSXX1_FOREACH(1, 02, ADCXX1S021_DEVICE);
+#endif
+
+#if CONFIG_ADC_TXXNSXX1_SUPPORT_500_KSPS
+INST_DT_ADCXXNSXX1_FOREACH(4, 05, ADCXX4S051_DEVICE);
+INST_DT_ADCXXNSXX1_FOREACH(2, 05, ADCXX2S051_DEVICE);
+INST_DT_ADCXXNSXX1_FOREACH(1, 05, ADCXX1S051_DEVICE);
+#endif
+
+#if CONFIG_ADC_TXXNSXX1_SUPPORT_1000_KSPS
+INST_DT_ADCXXNSXX1_FOREACH(4, 10, ADCXX4S101_DEVICE);
+INST_DT_ADCXXNSXX1_FOREACH(2, 10, ADCXX2S101_DEVICE);
+INST_DT_ADCXXNSXX1_FOREACH(1, 10, ADCXX1S101_DEVICE);
+#endif
