@@ -43,6 +43,9 @@ struct txxNSxx1_config {
 	struct spi_dt_spec bus;
 	uint8_t channels;
 	uint8_t resolution;
+	uint32_t max_ksps;
+	uint32_t min_freq_khz;
+	uint32_t max_freq_khz;
 };
 
 struct txxNSxx1_data {
@@ -50,9 +53,6 @@ struct txxNSxx1_data {
 	uint16_t *buffer;
 	uint8_t channels;
 	uint8_t resolution;
-	uint32_t max_ksps;
-	uint32_t min_freq_khz;
-	uint32_t max_freq_khz;
 };
 
 static int txxNSxx1_channel_setup(const struct device *dev,
@@ -83,17 +83,17 @@ static int txxNSxx1_channel_setup(const struct device *dev,
 		return -ENOTSUP;
 	}
 
-	if (1000 * data->min_freq_khz > config->bus.config.frequency) {
+	if (1000 * config->min_freq_khz > config->bus.config.frequency) {
 		LOG_ERR("too low SCLK frequency: '%d' Hz", config->bus.config.frequency);
 		return -ENOTSUP;
 	}
 
-	if (1000 * data->max_freq_khz < config->bus.config.frequency) {
+	if (1000 * config->max_freq_khz < config->bus.config.frequency) {
 		LOG_ERR("too high SCLK frequency: '%d' Hz", config->bus.config.frequency);
 		return -ENOTSUP;
 	}
 
-	if (16000 * data->max_ksps < config->bus.config.frequency) {
+	if (16000 * config->max_ksps < config->bus.config.frequency) {
 		LOG_WRN("SCLK frequency larger than max sample rate: '%d' Hz", config->bus.config.frequency);
 	}
 
@@ -239,19 +239,19 @@ static DEVICE_API(adc, txxNSxx1_adc_api) = {
 
 #define INST_DT_ADCXXNSXX1(inst, t) DT_INST(inst, ti_##t)
 
-#define ADCXXNSXX1_DEVICE(t, n, ch, ksps)                      \
+#define ADCXXNSXX1_DEVICE(t, n, ch, ksps)             \
 	static struct txxNSxx1_data ti_##t##_data_##n = { \
-		.channels = ch,                           \
-		.max_ksps = ksps,                         \
-		.min_freq_khz = 50,                       \
-		.max_freq_khz = 16000,                    \
+		.channels = ch,  \
 	}; \
 	static const struct txxNSxx1_config ti_##t##_config_##n = { \
 		.bus = SPI_DT_SPEC_GET(INST_DT_ADCXXNSXX1(n, t), \
 					 SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | \
 					 SPI_MODE_CPOL | SPI_MODE_CPHA | \
 					 SPI_WORD_SET(16), 0), \
-		.channels = ch, \
+		.channels = ch,			\
+		.max_ksps = ksps,		\
+		.min_freq_khz = 50,		\
+		.max_freq_khz = 16000,	\
 	}; \
 	DEVICE_DT_DEFINE(INST_DT_ADCXXNSXX1(n, t), \
 			 &txxNSxx1_init, NULL, \
