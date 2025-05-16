@@ -13,8 +13,7 @@
 #define AIROC_GPIO_LED_PIN   0
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /** Sends an IOVAR command to set a given GPIO pin to the specified level.
@@ -28,6 +27,6 @@ extern "C"
 extern int airoc_gpio_set(uint8_t gpio, uint8_t on);
 
 #ifdef __cplusplus
-}     /* extern "C" */
+} /* extern "C" */
 #endif
 #endif /*  INCLUDED_AIROC_GPIO_H_ */
