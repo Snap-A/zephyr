@@ -5,7 +5,6 @@
 '''Runner for debugging with J-Link.'''
 
 import argparse
-import glob
 import ipaddress
 import logging
 import os
@@ -26,37 +25,8 @@ try:
 except ImportError:
     MISSING_REQUIREMENTS = True
 
-if sys.platform == 'win32':
-    # JLink.exe can collide with the JDK executable of the same name
-    # Look in the usual locations before falling back to $PATH
-    for root in [os.environ["ProgramFiles"], os.environ["ProgramFiles(x86)"], str(Path.home())]: # noqa SIM112
-        # SEGGER folder can contain a single "JLink" folder
-        _direct = Path(root) / "SEGGER" / "JLink" / "JLink.exe"
-        if _direct.exists():
-            DEFAULT_JLINK_EXE = str(_direct)
-            del _direct
-        else:
-            # SEGGER folder can contain multiple versions such as:
-            #   JLink_V796b
-            #   JLink_V796t
-            #   JLink_V798c
-            # Find the latest version
-            _versions = glob.glob(str(Path(root) / "SEGGER" / "JLink_V*"))
-            if len(_versions) == 0:
-                continue
-            _expected_jlink = Path(_versions[-1]) / "JLink.exe"
-            if not _expected_jlink.exists():
-                continue
-            DEFAULT_JLINK_EXE = str(_expected_jlink)
-            # Cleanup variables
-            del _versions
-            del _expected_jlink
-        break
-    else:
-        # Not found in the normal locations, hope that $PATH is correct
-        DEFAULT_JLINK_EXE = "JLink.exe"
-else:
-    DEFAULT_JLINK_EXE = "JLinkExe"
+# Populated in do_add_parser()
+DEFAULT_JLINK_EXE = None
 DEFAULT_JLINK_GDB_PORT = 2331
 DEFAULT_JLINK_RTT_PORT = 19021
 
@@ -96,6 +66,7 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
         self.hex_name = cfg.hex_file
         self.bin_name = cfg.bin_file
         self.elf_name = cfg.elf_file
+        self.mot_name = cfg.mot_file
         self.gdb_cmd = [cfg.gdb] if cfg.gdb else None
         self.device = device
         self.dev_id = dev_id
@@ -138,8 +109,36 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
     def tool_opt_help(cls) -> str:
         return "Additional options for JLink Commander, e.g. '-autoconnect 1'"
 
+    @staticmethod
+    def default_jlink():
+        global DEFAULT_JLINK_EXE
+
+        if sys.platform == 'win32':
+            # JLink.exe can collide with the JDK executable of the same name
+            # Locate the executable using the registry
+            try:
+                import winreg
+
+                # Note that when multiple JLink versions are installed on the
+                # machine this points to the one that was installed
+                # last, and not to the latest version.
+                key = winreg.OpenKeyEx(
+                    winreg.HKEY_CURRENT_USER, r"Software\SEGGER\J-Link")
+                DEFAULT_JLINK_EXE = (
+                    Path(winreg.QueryValueEx(key, "InstallPath")[0])
+                    / "JLink.exe")
+            except Exception:
+                # Not found via the registry, hope that $PATH is correct
+                DEFAULT_JLINK_EXE = "JLink.exe"
+        else:
+            DEFAULT_JLINK_EXE = "JLinkExe"
+
     @classmethod
     def do_add_parser(cls, parser):
+
+        # Find the default JLink executable
+        cls.default_jlink()
+
         # Required:
         parser.add_argument('--device', required=True, help='device name')
 
@@ -281,6 +280,7 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
         # version of the tools we're using.
         self.commander = os.fspath(
             Path(self.require(self.commander)).resolve())
+        self.logger.debug(f'JLink executable: {self.commander}')
         self.logger.info(f'JLink version: {self.jlink_version_str}')
 
         rtos = self.thread_info_enabled and self.supports_thread_info
@@ -385,7 +385,7 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
 
             if self.file_type == FileType.HEX:
                 flash_cmd = f'loadfile "{self.file}"'
-            elif self.file_type == FileType.BIN:
+            elif self.file_type == (FileType.BIN or FileType.MOT):
                 if self.dt_flash:
                     flash_addr = self.flash_address_from_build_conf(self.build_conf)
                 else:
@@ -397,10 +397,14 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
 
         else:
             # Use hex, bin or elf file provided by the buildsystem.
-            # Preferring .hex over .bin and .elf
+            # Preferring .hex over .mot, .bin and .elf
             if self.hex_name is not None and os.path.isfile(self.hex_name):
                 flash_file = self.hex_name
                 flash_cmd = f'loadfile "{self.hex_name}"'
+            # Preferring .mot over .bin and .elf
+            elif self.mot_name is not None and os.path.isfile(self.mot_name):
+                flash_file = self.mot_name
+                flash_cmd = f'loadfile {self.mot_name}'
             # Preferring .bin over .elf
             elif self.bin_name is not None and os.path.isfile(self.bin_name):
                 if self.dt_flash:
@@ -412,9 +416,12 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
             elif self.elf_name is not None and os.path.isfile(self.elf_name):
                 flash_file = self.elf_name
                 flash_cmd = f'loadfile "{self.elf_name}"'
+            elif self.mot_name is not None and os.path.isfile(self.mot_name):
+                flash_file = self.mot_name
+                flash_cmd = f'loadfile {self.mot_name}'
             else:
-                err = 'Cannot flash; no hex ({}), bin ({}) or elf ({}) files found.'
-                raise ValueError(err.format(self.hex_name, self.bin_name, self.elf_name))
+                err = 'Cannot flash; no hex ({}), bin ({}) or mot ({})  files found.'
+                raise ValueError(err.format(self.hex_name, self.bin_name))
 
         # Flash the selected build artifact
         lines.append(flash_cmd)

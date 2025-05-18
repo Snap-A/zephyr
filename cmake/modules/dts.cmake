@@ -290,11 +290,21 @@ set_property(DIRECTORY APPEND PROPERTY
 # Run GEN_EDT_SCRIPT.
 #
 
+if(WEST_TOPDIR)
+  set(GEN_EDT_WORKSPACE_DIR ${WEST_TOPDIR})
+else()
+  # If West is not available, define the parent directory of ZEPHYR_BASE as
+  # the workspace. This will create comments that reference the files in the
+  # Zephyr tree with a 'zephyr/' prefix.
+  set(GEN_EDT_WORKSPACE_DIR ${ZEPHYR_BASE}/..)
+endif()
+
 string(REPLACE ";" " " EXTRA_DTC_FLAGS_RAW "${EXTRA_DTC_FLAGS}")
 set(CMD_GEN_EDT ${PYTHON_EXECUTABLE} ${GEN_EDT_SCRIPT}
 --dts ${DTS_POST_CPP}
 --dtc-flags '${EXTRA_DTC_FLAGS_RAW}'
 --bindings-dirs ${DTS_ROOT_BINDINGS}
+--workspace-dir ${GEN_EDT_WORKSPACE_DIR}
 --dts-out ${ZEPHYR_DTS}.new # for debugging and dtc
 --edt-pickle-out ${EDT_PICKLE}.new
 ${EXTRA_GEN_EDT_ARGS}
@@ -413,17 +423,9 @@ execute_process(
   ${ZEPHYR_DTS}
   OUTPUT_QUIET # Discard stdout
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-  RESULT_VARIABLE ret
-  ERROR_VARIABLE stderr
+  COMMAND_ERROR_IS_FATAL ANY
   )
 
-if(NOT "${ret}" STREQUAL "0")
-  message(FATAL_ERROR "dtc failed with return code: ${ret}")
-elseif(stderr)
-  # dtc printed warnings on stderr but did not fail.
-  # Display them as CMake warnings to draw attention.
-  message(WARNING "dtc raised one or more warnings:\n${stderr}")
-endif()
 endif(DTC)
 
 build_info(devicetree files PATH ${dts_files})
