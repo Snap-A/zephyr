@@ -1,0 +1,20 @@
+# Copyright (c) 2025 Andreas Wolf <awolf002@gmail.com>
+# SPDX-License-Identifier: Apache-2.0
+
+include: [dac-controller.yaml, spi-device.yaml]
+
+description: Texas Instrument 8-Bit to 14-Bit DAC <N>311
+
+# properties:
+#  voltage-reference:
+#    type: int
+#    required: true
+#    description: |
+#      DAC voltage reference select
+
+properties:
+  "#io-channel-cells":
+    const: 1
+
+io-channel-cells:
+  - output
