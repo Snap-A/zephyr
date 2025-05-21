@@ -6,6 +6,9 @@
 config ADC_TXXNSXX1
 	bool "TI ADCxxNSxx1 driver"
 	default y
+	depends on DT_HAS_TI_ADCXX2S021_ENABLED || \
+		DT_HAS_TI_ADCXX2S051_ENABLED || \
+		DT_HAS_TI_ADCXX2S101_ENABLED
 	select SPI
 	help
 	  Enable TI ADCxxNSxx1 ADC driver.
