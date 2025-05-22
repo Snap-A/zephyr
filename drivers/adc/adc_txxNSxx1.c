@@ -218,7 +218,7 @@ static int txxNSxx1_read(const struct device *dev,
 			break;
 		}
 
-		result &= (BIT_MASK(sequence->resolution) << 2);
+		result &= 0x0FFF;
 		int shift = MAX_RESOLUTION - sequence->resolution;
 		result >>= shift;
 
