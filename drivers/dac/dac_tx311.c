@@ -25,7 +25,7 @@
 #include <zephyr/sys/__assert.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(dac_dacx311, CONFIG_DAC_LOG_LEVEL);
+LOG_MODULE_REGISTER(dac_tx311, CONFIG_DAC_LOG_LEVEL);
 
 #define DACX311_MIN_RESOLUTION 8U
 #define DACX311_MAX_RESOLUTION 14U
