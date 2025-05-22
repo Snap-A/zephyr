@@ -4,6 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @file
+ * @brief DAC driver for the TI x311 single channel DACs.
+ *
+ * This driver supports multiple variants of the Texas Instrument DAC chip.
+ *
+ *  DAC5311 : 8-bit resolution
+ *  DAC6311 : 10-bit resolution
+ *  DAC7311 : 12-bit resolution
+ *  DAC8311 : 14-bit resolution
+ *
+ */
+
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/drivers/dac.h>
@@ -14,12 +27,15 @@
 
 LOG_MODULE_REGISTER(dac_dacx311, CONFIG_DAC_LOG_LEVEL);
 
-#define DACX311_MAX_RESOLUTION 14
-#define DACX311_MAX_CHANNEL    1
+#define DACX311_MIN_RESOLUTION 8U
+#define DACX311_MAX_RESOLUTION 14U
+
+#define DACX311_MAX_CHANNEL    1U
 
 struct dacx311_config {
 	struct spi_dt_spec bus;
 	uint8_t resolution;
+	uint32_t max_freq_khz;
 };
 
 struct dacx311_data {
@@ -48,11 +64,11 @@ static int dacx311_reg_write(const struct device *dev, uint16_t val)
 		.count = ARRAY_SIZE(tx_buf)-1
 	};
 
-        /* Set register bits */
-        tx_bytes[0] = val >> 8;
-        tx_bytes[1] = val & 0xFF;
+	/* Set register bits */
+	tx_bytes[0] = val >> 8;
+	tx_bytes[1] = val & 0xFF;
 
-        /* Write to bus */
+	/* Write to bus */
 	return spi_write_dt(&cfg->bus, &tx);
 }
 
@@ -69,6 +85,17 @@ static int dacx311_channel_setup(const struct device *dev,
 
 	if (channel_cfg->internal) {
 		LOG_ERR("Internal channels not supported");
+		return -ENOTSUP;
+	}
+
+	if (1000 * config->max_freq_khz < config->bus.config.frequency) {
+		LOG_ERR("too high SCLK frequency: '%d' Hz", config->bus.config.frequency);
+		return -ENOTSUP;
+	}
+
+	if ((config->resolution > DACX311_MAX_RESOLUTION) ||
+	    (config->resolution < DACX311_MIN_RESOLUTION)) {
+		LOG_ERR("Unsupported resolution %d", config->resolution);
 		return -ENOTSUP;
 	}
 
@@ -92,7 +119,7 @@ static int dacx311_write_value(const struct device *dev, uint8_t channel,
 {
 	struct dacx311_data *data = dev->data;
 	uint16_t regval;
-        uint8_t shift;
+	uint8_t shift;
 	int ret;
 
 	const bool brdcast = (channel == DAC_CHANNEL_BROADCAST) ? 1 : 0;
@@ -117,7 +144,6 @@ static int dacx311_write_value(const struct device *dev, uint8_t channel,
 		return -EINVAL;
 	}
 
-        shift = DACX311_MAX_RESOLUTION - data->resolution;
 	/*
 	 * Shift passed value to align MSB bit position to register bit 13.
 	 *
@@ -127,13 +153,20 @@ static int dacx311_write_value(const struct device *dev, uint8_t channel,
 	 * |-------|---------------------------------------------------|
 	 * | Mode  | 8311[13:0] / 7311[13:2] / 6311[13:4] / 5311[13:6] |
 	 */
+	shift = DACX311_MAX_RESOLUTION - data->resolution;
 	regval = value << shift;
 
-        /*
-         * Set mode bits to '0 0' to enable normal output drivers
-         */
+	/*
+	 * Set mode bits to '0 0' to enable normal output.
+	 *
+	 * MODE = 0 0  -> Normal Operation
+	 *        0 1  -> Output 1 kΩ to GND
+	 *        1 0  -> Output 100 kΩ to GND
+	 *        1 1  -> High-Z
+	 */
 	regval &= 0x3FFF;
 
+	/* Write to output */
 	ret = dacx311_reg_write(dev, regval);
 	if (ret) {
 		LOG_ERR("Unable to set value %d on channel %d", value, channel);
@@ -154,17 +187,18 @@ static DEVICE_API(dac, dacx311_driver_api) = {
 	static struct dacx311_data dac##t##_data_##n; \
 	static const struct dacx311_config dac##t##_config_##n = { \
 		.bus = SPI_DT_SPEC_GET(INST_DT_DACX311(n, t), \
-					 SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | \
-					 SPI_MODE_CPOL | SPI_MODE_CPHA | \
-					 SPI_WORD_SET(16), 0),  \
+					SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | \
+					SPI_MODE_CPHA | \
+					SPI_WORD_SET(16), 0),  \
 		.resolution = res, \
+		.max_freq_khz = 50000,		\
 	}; \
 	DEVICE_DT_DEFINE(INST_DT_DACX311(n, t), \
-				NULL, NULL, \
-				&dac##t##_data_##n, \
-				&dac##t##_config_##n, POST_KERNEL, \
-				CONFIG_DAC_INIT_PRIORITY, \
-				&dacx311_driver_api)
+			 NULL, NULL, \
+			 &dac##t##_data_##n,			   \
+			 &dac##t##_config_##n, POST_KERNEL,	   \
+			 CONFIG_DAC_INIT_PRIORITY,		   \
+			 &dacx311_driver_api)
 
 /*
  * DAC8311: 14-bit
@@ -191,7 +225,7 @@ static DEVICE_API(dac, dacx311_driver_api) = {
 
 #define INST_DT_DACX311_FOREACH(t, inst_expr) \
 	LISTIFY(DT_NUM_INST_STATUS_OKAY(ti_dac##t), \
-		     CALL_WITH_ARG, (), inst_expr)
+		CALL_WITH_ARG, (), inst_expr)
 
 INST_DT_DACX311_FOREACH(8311, DAC8311_DEVICE);
 INST_DT_DACX311_FOREACH(7311, DAC7311_DEVICE);
