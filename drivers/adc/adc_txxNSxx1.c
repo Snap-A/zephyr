@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Andreas Wolf
+ * Copyright (c) 2025  Andreas Wolf <awolf002@gmailcom>
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -38,6 +38,7 @@ LOG_MODULE_REGISTER(adc_txxNSxx1, CONFIG_ADC_LOG_LEVEL);
 
 #define MIN_RESOLUTION 8U
 #define MAX_RESOLUTION 12U
+#define MAX_BIT_MASK   0xFFF
 
 struct txxNSxx1_config {
 	struct spi_dt_spec bus;
@@ -108,64 +109,47 @@ static int txxNSxx1_read_channel(const struct device *dev, uint8_t channel,
 {
 	const struct txxNSxx1_config *config = dev->config;
 
-        /* The ADC frame length is 16 bits, but only a subset is used for real data.  */
-        /* The first frame sets the channel number for the conversion, and the second */
-        /* frame contains the obtained data for that channel. The data written in the */
-        /* second frame is no useful (selecting channel 0), and the data read in the  */
-        /* first frame might originate from an unknown channel and is ignored.        */
+	/* The ADC frame length is 16 bits, but only a subset is used for real data.  */
+	/* The first frame sets the channel number for the conversion, and the second */
+	/* frame contains the obtained data for that channel. The data written in the */
+	/* second frame is not significant (selecting channel 0), and the data read   */
+	/* in the first frame might originate from an unknown channel and is ignored. */
 
-	uint8_t tx1_bytes[2];
-	uint8_t rx1_bytes[2];
-	uint8_t tx2_bytes[2];
-	uint8_t rx2_bytes[2];
+	uint8_t tx_bytes[4];
+	uint8_t rx_bytes[4];
 	int err;
-	const struct spi_buf tx_buf[3] = {
+	const struct spi_buf tx_buf[] = {
 		{
-			.buf = tx1_bytes,
-			.len = sizeof(tx1_bytes)
-		},
-		{
-			.buf = tx2_bytes,
-			.len = sizeof(tx2_bytes)
-		},
-		{
-			.buf = NULL,
-			.len = 1
+			.buf = tx_bytes,
+			.len = sizeof(tx_bytes)
 		}
 	};
-	const struct spi_buf rx_buf[3] = {
+	const struct spi_buf rx_buf[] = {
 		{
-			.buf = rx1_bytes,
-			.len = sizeof(rx1_bytes)
-		},
-		{
-			.buf = rx2_bytes,
-			.len = sizeof(rx2_bytes)
-		},
-		{
-			.buf = NULL,
-			.len = 1
+			.buf = rx_bytes,
+			.len = sizeof(rx_bytes)
 		}
 	};
 	const struct spi_buf_set tx = {
 		.buffers = tx_buf,
-		.count = ARRAY_SIZE(tx_buf)-1
+		.count = ARRAY_SIZE(tx_buf)
 	};
 	const struct spi_buf_set rx = {
 		.buffers = rx_buf,
-		.count = ARRAY_SIZE(rx_buf)-1
+		.count = ARRAY_SIZE(rx_buf)
 	};
 
 	/*
 	 * Configuration byte consists of: 2 dummy bits + D2 + D1 + D0 + 3 dummy bits
+	 * The second byte is ignored.
 	 */
-	tx1_bytes[0] = channel << 3;
-	tx1_bytes[1] = 0;
+	tx_bytes[0] = channel << 3;
+	tx_bytes[1] = 0;
 	/*
-	 * Just sent zeroes
+	 * Just sent zeroes (see comment above)
 	 */
-	tx2_bytes[0] = 0;
-	tx2_bytes[1] = 0;
+	tx_bytes[2] = 0;
+	tx_bytes[3] = 0;
 
 	err = spi_transceive_dt(&config->bus, &tx, &rx);
 	if (err) {
@@ -173,9 +157,9 @@ static int txxNSxx1_read_channel(const struct device *dev, uint8_t channel,
 	}
 
 	/*
-	 * Read data from second frame
+	 * Read 16-bit data from second frame
 	 */
-	*result = sys_get_be16(rx2_bytes);
+	*result = sys_get_be16(rx_bytes+2);
 
 	return 0;
 }
@@ -218,7 +202,7 @@ static int txxNSxx1_read(const struct device *dev,
 			break;
 		}
 
-		result &= 0x0FFF;
+		result &= MAX_BIT_MASK;
 		int shift = MAX_RESOLUTION - sequence->resolution;
 		result >>= shift;
 
@@ -246,7 +230,6 @@ static DEVICE_API(adc, txxNSxx1_adc_api) = {
 	static const struct txxNSxx1_config ti_##t##_config_##n = { \
 		.bus = SPI_DT_SPEC_GET(INST_DT_ADCXXNSXX1(n, t), \
 					 SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | \
-					 SPI_MODE_CPOL | SPI_MODE_CPHA | \
 					 SPI_WORD_SET(16), 0), \
 		.channels = ch,			\
 		.max_ksps = ksps,		\
@@ -291,17 +274,17 @@ static DEVICE_API(adc, txxNSxx1_adc_api) = {
 #define ADCXX2S101_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx2s101, n, 2, 1000)
 
 /*
- * ADCxx4Sxx1: 4 channels, max 200 ksps
+ * ADCxx4S021: 4 channels, max 200 ksps
  */
 #define ADCXX4S021_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx4s021, n, 4, 200)
 
 /*
- * ADCxx4Sxx1: 4 channels, max 500 ksps
+ * ADCxx4S051: 4 channels, max 500 ksps
  */
 #define ADCXX4S051_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx4s051, n, 4, 500)
 
 /*
- * ADCxx4Sxx1: 4 channels, max 1000 ksps
+ * ADCxx4S101: 4 channels, max 1000 ksps
  */
 #define ADCXX4S101_DEVICE(n) ADCXXNSXX1_DEVICE(adcxx4s101, n, 4, 1000)
 
