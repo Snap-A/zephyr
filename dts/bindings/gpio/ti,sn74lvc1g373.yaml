@@ -1,0 +1,22 @@
+# Copyright (c) 2025 Andreas Wolf <awolf002@gmail.com>
+# SPDX-License-Identifier: Apache-2.0
+
+description: SN74LCV1G373 SPI based GPIO expander
+
+compatible: "ti,sn74lvc1g373"
+
+include: [gpio-controller.yaml, spi-device.yaml]
+
+properties:
+  ngpios:
+    type: int
+    required: true
+    const: 1
+    description: Number of supported gpios
+
+  "#gpio-cells":
+    const: 2
+
+gpio-cells:
+  - pin
+  - flags
