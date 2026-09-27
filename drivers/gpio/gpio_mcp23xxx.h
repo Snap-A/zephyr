@@ -35,6 +35,7 @@
 #define REG_OLAT 0x0A
 
 #define REG_IOCON_MIRROR BIT(6)
+#define REG_IOCON_HAEN   BIT(3)
 
 #define MCP23SXX_ADDR 0x40
 #define MCP23SXX_READBIT 0x01
@@ -60,6 +61,7 @@ struct mcp23xxx_config {
 	struct gpio_dt_spec gpio_int;
 	struct gpio_dt_spec gpio_reset;
 
+	uint8_t addr;
 	uint8_t ngpios;
 	bool is_open_drain;
 	mcp23xxx_read_port_regs read_fn;

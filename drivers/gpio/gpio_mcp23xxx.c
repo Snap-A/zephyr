@@ -25,6 +25,7 @@ LOG_MODULE_REGISTER(gpio_mcp23xxx);
 
 #define MCP23XXX_RESET_TIME_US 2
 
+#define MCP23XXX_IOCON_HAEN 0x08
 /**
  * @brief Reads given register from mcp23xxx.
  *
@@ -204,6 +205,14 @@ static int mcp23xxx_pin_cfg(const struct device *dev, gpio_pin_t pin, gpio_flags
 	if (ret < 0) {
 		LOG_ERR("Error setting pin pull up/pull down (%d)", ret);
 		goto done;
+	}
+
+	{
+		uint16_t buf;
+		ret = read_port_regs(dev, REG_IOCON, &buf);
+		if (ret == 0) {
+			printk("Current IOCON(%d) = %x\n", config->addr, buf);
+		}
 	}
 
 done:
@@ -524,16 +533,36 @@ int gpio_mcp23xxx_init(const struct device *dev)
 		}
 	}
 
+	/* Open drain device does not support HAEN */
+	if (!config->is_open_drain)
+	{
+		/* If this driver needs to send address bits, enable HAEN
+		 * in the IOCON register
+		 */
+		if (config->addr != 0x80) {
+			uint8_t port = drv_data->reg_cache.iocon | REG_IOCON_HAEN;
+			err = write_iocon(dev, port);
+
+			if (err != 0) {
+				LOG_ERR("Failed to set HAEN in IOCON: %d", err);
+				return -EIO;
+			}
+			drv_data->reg_cache.iocon = port;
+		}
+	}
+
 	/* If the INT line is available, configure the callback for it. */
 	if (config->gpio_int.port) {
 		if (config->ngpios == 16) {
+			uint8_t port = drv_data->reg_cache.iocon | REG_IOCON_MIRROR;
 			/* send both ports' interrupts through one IRQ pin */
-			err = write_iocon(dev, REG_IOCON_MIRROR);
+			err = write_iocon(dev, port);
 
 			if (err != 0) {
 				LOG_ERR("Failed to enable mirrored IRQ pins: %d", err);
 				return -EIO;
 			}
+			drv_data->reg_cache.iocon = port;
 		}
 
 		if (!gpio_is_ready_dt(&config->gpio_int)) {

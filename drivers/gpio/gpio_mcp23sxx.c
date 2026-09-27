@@ -33,6 +33,9 @@ static int mcp23sxx_read_port_regs(const struct device *dev, uint8_t reg, uint16
 	uint8_t nread = (config->ngpios == 8) ? 1 : 2;
 
 	uint8_t addr = MCP23SXX_ADDR | MCP23SXX_READBIT;
+	if (config->addr != 0x80)
+		addr |= config->addr << 1;
+
 	uint8_t buffer_tx[4] = { addr, reg, 0, 0 };
 	uint8_t buffer_rx[4] = { 0 };
 
@@ -79,6 +82,9 @@ static int mcp23sxx_write_port_regs(const struct device *dev, uint8_t reg, uint1
 	port_data = sys_cpu_to_le16(value);
 
 	uint8_t addr = MCP23SXX_ADDR;
+	if (config->addr != 0x80)
+		addr |= config->addr << 1;
+
 	uint8_t buffer_tx[4] = { addr, reg, port_a_data, port_b_data };
 
 	const struct spi_buf tx_buf[1] = {
@@ -130,6 +136,7 @@ static int mcp23sxx_bus_is_ready(const struct device *dev)
 		},                                                                            \
 		.gpio_int = GPIO_DT_SPEC_INST_GET_OR(inst, int_gpios, {0}),                   \
 		.gpio_reset = GPIO_DT_SPEC_INST_GET_OR(inst, reset_gpios, {0}),               \
+		.addr = DT_INST_PROP_OR(inst, address_used, 0x80),       \
 		.ngpios =  num_gpios,				                              \
 		.is_open_drain = open_drain,                                                  \
 		.read_fn = mcp23sxx_read_port_regs,                                           \
